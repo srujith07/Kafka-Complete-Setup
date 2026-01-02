@@ -1,0 +1,21 @@
+- Install java and kafka create service 
+- vim server.properties
+node.id	4
+process.roles	broker (Note: no "controller" here)
+controller.quorum.voters	1@<IIP_1>:9093,2@<IIP_2>:9093,3@<IIP_3>:9093
+listeners	PLAINTEXT://0.0.0.0:9092 (Note: No 9093 listener needed)
+advertised.listeners	PLAINTEXT://<IIP_4>:9092
+
+Node 4 is a Broker-only so no need of 9093 listener
+
+- Note: adding node 4 wont transfer topics to it to transfer topics
+
+- topics_to_move.json
+{
+  "topics": [{"topic": "production-test"}],
+  "version": 1
+}
+
+- bin/kafka-reassign-partitions.sh --bootstrap-server <IIP_1>:9092 \
+--topics-to-move-json-file topics-to-move.json \
+--broker-list "1,2,3,4" --generate

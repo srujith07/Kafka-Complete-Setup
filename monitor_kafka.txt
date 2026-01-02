@@ -1,0 +1,275 @@
+- Downaload JMX exporter on every kafka node
+sudo mkdir -p /opt/prometheus
+cd /opt/prometheus
+sudo wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/1.0.1/jmx_prometheus_javaagent-1.0.1.jar
+sudo vim /opt/prometheus/kafka-monitoring.yml
+
+lowercaseOutputName: true
+
+rules:
+# Special cases and very specific rules
+- pattern : kafka.server<type=(.+), name=(.+), clientId=(.+), topic=(.+), partition=(.*)><>Value
+  name: kafka_server_$1_$2
+  type: GAUGE
+  labels:
+    clientId: "$3"
+    topic: "$4"
+    partition: "$5"
+- pattern : kafka.server<type=(.+), name=(.+), clientId=(.+), brokerHost=(.+), brokerPort=(.+)><>Value
+  name: kafka_server_$1_$2
+  type: GAUGE
+  labels:
+    clientId: "$3"
+    broker: "$4:$5"
+- pattern : kafka.coordinator.(\w+)<type=(.+), name=(.+)><>Value
+  name: kafka_coordinator_$1_$2_$3
+  type: GAUGE
+
+# Generic per-second counters with 0-2 key/value pairs
+- pattern: kafka.(\w+)<type=(.+), name=(.+)PerSec\w*, (.+)=(.+), (.+)=(.+)><>Count
+  name: kafka_$1_$2_$3_total
+  type: COUNTER
+  labels:
+    "$4": "$5"
+    "$6": "$7"
+- pattern: kafka.(\w+)<type=(.+), name=(.+)PerSec\w*, (.+)=(.+)><>Count
+  name: kafka_$1_$2_$3_total
+  type: COUNTER
+  labels:
+    "$4": "$5"
+- pattern: kafka.(\w+)<type=(.+), name=(.+)PerSec\w*><>Count
+  name: kafka_$1_$2_$3_total
+  type: COUNTER
+
+# Quota specific rules
+- pattern: kafka.server<type=(.+), user=(.+), client-id=(.+)><>([a-z-]+)
+  name: kafka_server_quota_$4
+  type: GAUGE
+  labels:
+    resource: "$1"
+    user: "$2"
+    clientId: "$3"
+- pattern: kafka.server<type=(.+), client-id=(.+)><>([a-z-]+)
+  name: kafka_server_quota_$3
+  type: GAUGE
+  labels:
+    resource: "$1"
+    clientId: "$2"
+- pattern: kafka.server<type=(.+), user=(.+)><>([a-z-]+)
+  name: kafka_server_quota_$3
+  type: GAUGE
+  labels:
+    resource: "$1"
+    user: "$2"
+
+# Generic gauges with 0-2 key/value pairs
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.+), (.+)=(.+)><>Value
+  name: kafka_$1_$2_$3
+  type: GAUGE
+  labels:
+    "$4": "$5"
+    "$6": "$7"
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.+)><>Value
+  name: kafka_$1_$2_$3
+  type: GAUGE
+  labels:
+    "$4": "$5"
+- pattern: kafka.(\w+)<type=(.+), name=(.+)><>Value
+  name: kafka_$1_$2_$3
+  type: GAUGE
+
+# Emulate Prometheus 'Summary' metrics for the exported 'Histogram's.
+#
+# Note that these are missing the '_sum' metric!
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.+), (.+)=(.+)><>Count
+  name: kafka_$1_$2_$3_count
+  type: COUNTER
+  labels:
+    "$4": "$5"
+    "$6": "$7"
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.*), (.+)=(.+)><>(\d+)thPercentile
+  name: kafka_$1_$2_$3
+  type: GAUGE
+  labels:
+    "$4": "$5"
+    "$6": "$7"
+    quantile: "0.$8"
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.+)><>Count
+  name: kafka_$1_$2_$3_count
+  type: COUNTER
+  labels:
+    "$4": "$5"
+- pattern: kafka.(\w+)<type=(.+), name=(.+), (.+)=(.*)><>(\d+)thPercentile
+  name: kafka_$1_$2_$3
+  type: GAUGE
+  labels:
+    "$4": "$5"
+    quantile: "0.$6"
+- pattern: kafka.(\w+)<type=(.+), name=(.+)><>Count
+  name: kafka_$1_$2_$3_count
+  type: COUNTER
+- pattern: kafka.(\w+)<type=(.+), name=(.+)><>(\d+)thPercentile
+  name: kafka_$1_$2_$3
+  type: GAUGE
+  labels:
+    quantile: "0.$4"
+
+# Generic gauges for MeanRate Percent
+# Ex) kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>MeanRate
+- pattern: kafka.(\w+)<type=(.+), name=(.+)Percent\w*><>MeanRate
+  name: kafka_$1_$2_$3_percent
+  type: GAUGE
+- pattern: kafka.(\w+)<type=(.+), name=(.+)Percent\w*><>Value
+  name: kafka_$1_$2_$3_percent
+  type: GAUGE
+- pattern: kafka.(\w+)<type=(.+), name=(.+)Percent\w*, (.+)=(.+)><>Value
+  name: kafka_$1_$2_$3_percent
+  type: GAUGE
+  labels:
+    "$4": "$5"
+github :- https://github.com/prometheus/jmx_exporter/blob/main/examples/kafka-2_0_0.yml
+
+- change the service file to run exporter together with service
+sudo vim /etc/systemd/system/kafka.service
+
+[Unit]
+Description=Apache Kafka Server
+Documentation=http://kafka.apache.org/documentation.html
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+# Ensure this path matches where you installed Java
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
+
+# PRODUCTION MONITORING CONFIGURATION
+# 1. We include the JMX Prometheus Agent on port 7071
+# 2. We specify the exact path to your .yml config file
+Environment="KAFKA_OPTS=-javaagent:/opt/prometheus/jmx_prometheus_javaagent-1.0.1.jar=7071:/opt/prometheus/kafka-monitoring.yml"
+
+# Recommended: Define Heap memory separately to ensure stability
+Environment="KAFKA_HEAP_OPTS=-Xmx1G -Xms1G"
+
+ExecStart=/home/kafka/kafka/bin/kafka-server-start.sh /home/kafka/kafka/config/server.properties
+ExecStop=/home/kafka/kafka/bin/kafka-server-stop.sh
+StandardOutput=append:/home/kafka/data/logs/service-stdout.log
+StandardError=append:/home/kafka/data/logs/service-stderr.log
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
+- Deamon-reload and check if it is exporting correctly
+curl -s localhost:7071/metrics | grep kafka_server_brokertopicmetrics_messagesin_total
+
+- On monitoring node install prometheus grafana and run kafka exporter
+sudo apt update && sudo apt upgrade -y
+sudo useradd prometheus
+sudo mkdir /etc/prometheus
+sudo mkdir /var/lib/prometheus
+
+- Download prometheus and setup
+cd ~
+wget https://github.com/prometheus/prometheus/releases/download/v3.0.1/prometheus-3.0.1.linux-amd64.tar.gz
+tar xvf prometheus-3.0.1.linux-amd64.tar.gz
+cd prometheus-3.0.1.linux-amd64
+sudo mv prometheus promtool /usr/local/bin/
+/etc/prometheus
+- change the config
+sudo vim /etc/prometheus/prometheus.yml
+# my global config
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# A scrape configuration containing your jobs:
+scrape_configs:
+  # 1. Prometheus monitoring itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["monitoring:9090"]
+
+  # 2. Kafka Broker Health (JMX Exporter)
+  - job_name: "kafka-brokers"
+    static_configs:
+      - targets:
+        - 'kafka01:7071'
+        - 'kafka02:7071'
+        - 'kafka03:7071'
+
+  # 3. Kafka Consumer Lag (Kafka Exporter)
+  - job_name: "kafka-exporter"
+    static_configs:
+      - targets: ["monitoring:9308"]
+
+- check permisions of /etc/prometheus and /var/lib/prometheus create a service file and start
+
+- create service file for prometheus
+[Unit]
+Description=Prometheus Monitoring
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+# We point to the binary in /usr/local/bin and the config in /etc/prometheus
+ExecStart=/usr/local/bin/prometheus \
+    --config.file /etc/prometheus/prometheus.yml \
+    --storage.tsdb.path /var/lib/prometheus/ \
+    --storage.tsdb.retention.time=48h \
+    --web.listen-address=0.0.0.0:9090 \
+    --web.enable-lifecycle
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+- check ui status target health
+
+- install kafka exporter
+cd ~
+wget https://github.com/danielqsj/kafka_exporter/releases/download/v1.7.0/kafka_exporter-1.7.0.linux-amd64.tar.gz
+tar -xzf kafka_exporter-1.7.0.linux-amd64.tar.gz
+sudo mv kafka_exporter-1.7.0.linux-amd64/kafka_exporter /usr/local/bin/
+
+- Create a service file (check IP's)
+sudo vim /etc/systemd/system/kafka_exporter.service
+
+
+[Unit]
+Description=Kafka Exporter
+After=network.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/kafka_exporter \
+  --kafka.server=kafka01:9092 \
+  --kafka.server=kafka02:9092 \
+  --kafka.server=kafka03:9092
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+- daemon reload start and check target status in promethues ui
+
+- Install grafana
+sudo apt-get install -y apt-transport-https software-properties-common
+sudo mkdir -p /etc/apt/keyrings/
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt update
+
+sudo apt install grafana -y
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+
+- Add dashboards with 7589 and 11962 change vairables to up

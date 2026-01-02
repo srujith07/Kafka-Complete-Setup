@@ -1,0 +1,47 @@
+- To check cluster health 
+bin/kafka-metadata-quorum.sh --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 describe --status
+
+- Create a topic
+
+bin/kafka-topics.sh --create --topic my_production_topic \
+  --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 \
+  --partitions 3 \
+  --replication-factor 3 \
+  --config min.insync.replicas=2 \
+  --config retention.bytes=5368709120 \
+  --config retention.ms=86400000
+ 
+- List the topics 
+bin/kafka-topics.sh --list --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092
+
+- Delete the topic 
+bin/kafka-topics.sh --delete --topic topic_name --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092
+
+- To check data in topic
+bin/kafka-console-consumer.sh --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 \
+  --topic topic_name \
+  --from-beginning
+  
+- To describe a topic
+bin/kafka-log-dirs.sh --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 --describe --topic-list topic_name
+
+- To see all consumers
+bin/kafka-consumer-groups.sh --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 --list
+
+- To delete all consumers
+bin/kafka-consumer-groups --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 --delete --all-groups
+
+- To reset offsets earliest
+bin/kafka-consumer-groups --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.9092 --group your-group-name --reset-offsets --to-earliest --topic your-topic --execute
+
+- To reset offsets lastest
+bin/kafka-consumer-groups --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 --group your-group-name --reset-offsets --to-latest --topic your-topic --execute
+
+- To reset offsets all
+bin/kafka-consumer-groups --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX.XX:9092 --group your-group-name --reset-offsets --to-earliest --all --execute
+
+- To delete particular consumer group
+bin/kafka-consumer-groups --bootstrap-server XX.XX.XX.XX:9092,XX.XX.XX.XX:9092,XX.XX.XX:9092 --delete --group my-consumer
+
+
+

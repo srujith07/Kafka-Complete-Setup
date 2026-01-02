@@ -1,0 +1,67 @@
+- sudo apt update
+
+- sudo apt install openjdk-17-jdk -y # Installing Java Dependency
+
+- java -version # Checking Proper installation of java
+
+- adduser kafka # Add a dedicated user for kafka and switch to that user
+
+- wget <download url of specific kafka version> # Downloading kafka
+
+- tar -xzvf kafka.x.x.tgz # Extracting the downloaded kafka 
+
+- ln -s kafka_2.xx-x.x.x kafka # Creating a symlink 
+
+- mkdir -p /home/kafka/data/logs          # Instead of home path use the desired path to store data
+  mkdir -p /home/kafka/data/kraft-data
+  
+- cd /home/kafka/kafka
+  bin/kafka-storage.sh random-uuid        # Only in one kafka node generate the cluster uuid vpuDtn-aSFu0Bu3LVBwIXw
+  
+- vim server.properties
+
+node.id	1	2	3
+process.roles	broker,controller	broker,controller	broker,controller
+listeners	PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093	PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093	PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+advertised.listeners	PLAINTEXT://<IIP_1>:9092	PLAINTEXT://<IIP_2>:9092	PLAINTEXT://<IIP_3>:9092
+controller.quorum.voters	1@<IIP_1>:9093,2@<IIP_2>:9093,3@<IIP_3>:9093	1@<IIP_1>:9093,2@<IIP_2>:9093,3@<IIP_3>:9093	1@<IIP_1>:9093,2@<IIP_2>:9093,3@<IIP_3>:9093
+controller.quorum.bootstrap.servers	<IIP_1>:9093,<IIP_2>:9093,<IIP_3>:9093	<IIP_1>:9093,<IIP_2>:9093,<IIP_3>:9093	<IIP_1>:9093,<IIP_2>:9093,<IIP_3>:9093
+inter.broker.listener.name	PLAINTEXT	PLAINTEXT	PLAINTEXT
+log.dirs	/home/kafka/data/logs	/home/kafka/data/logs	/home/kafka/data/logs
+metadata.log.dir	/home/kafka/data/kraft-data
+
+Property,Value,Why this matters for you
+default.replication.factor,3,Ensures every message exists on all 3 nodes.
+min.insync.replicas,2,"If 1 node dies, you still have 2 copies, so production keeps running."
+offsets.topic.replication.factor,3,"Protects your consumer ""bookmarks."""
+transaction.state.log.replication.factor,3,Essential if your apps use transactions.
+transaction.state.log.min.isr,2,Keeps transactions alive during a node failure.
+share.coordinator.state.topic.replication.factor,3,"Protects the new 4.0 ""Queue"" metadata."
+share.coordinator.state.topic.min.isr,2,The missing piece: ensures queue reliability.
+log.retention.bytes=adjust
+
+- cd /home/kafka/kafka                    # In all 3 nodes including controller and broker
+  bin/kafka-storage.sh format -t <YOUR_UUID> -c config/kraft/server.properties
+  
+- vim /etc/systemd/system/kafka.service
+[Unit]
+Description=Apache Kafka Server
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+# Ensure this path matches where you installed Java in Step 2
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
+ExecStart=/home/kafka/kafka/bin/kafka-server-start.sh /home/kafka/kafka/config/server.properties
+ExecStop=/home/kafka/kafka/bin/kafka-server-stop.sh
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+
+- Deamon reload enable and start service check status and telnet
+- bin/kafka-metadata-quorum.sh --bootstrap-server <NODE1_IIP>:9092 describe --status
