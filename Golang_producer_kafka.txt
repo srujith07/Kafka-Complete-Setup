@@ -37,7 +37,7 @@ type Metrics struct {
 
 func main() {
 	// 1. Setup Kafka connection
-	brokers := []string{"172.31.37.96:9092", "172.31.34.118:9092", "172.31.41.14:9092"}
+	brokers := []string{"kafka01:9092", "kafka02:9092", "kafka03:9092"}
 	topic := "golang_msgs"
 	host, _ := os.Hostname()
 
@@ -139,7 +139,7 @@ type Metrics struct {
 
 func main() {
 	topic := "golang_msgs"
-	brokers := []string{"172.31.37.96:9092", "172.31.34.118:9092", "172.31.41.14:9092"}
+	brokers := []string{"kafka01:9092", "kafka02:9092", "kafka03:9092"}
 	
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: brokers,
