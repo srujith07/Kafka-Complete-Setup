@@ -1,6 +1,7 @@
 🚀 Multi-Node Kafka KRaft Cluster & Observability
 
 A complete guide and technical implementation of a 3-node Apache Kafka (v4.1.1) cluster running in KRaft mode. This project demonstrates an end-to-end data pipeline integrated with a full Prometheus/Grafana observability stack, featuring automated alerting for consumer health.
+
 🏗 System Architecture
 
 The environment is built on AWS EC2 using Ubuntu, leveraging /etc/hosts for hostname resolution to maintain clean, portable configuration files.
@@ -12,6 +13,7 @@ The environment is built on AWS EC2 using Ubuntu, leveraging /etc/hosts for host
     Stream Processing: A centralized Go consumer service processing streams into a CSV-based data sink.
 
     Monitoring: Full-stack observability using Prometheus, Grafana, and JMX/Kafka exporters.
+
 
 📁 Repository Documentation Guide
 
