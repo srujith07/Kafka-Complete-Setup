@@ -58,3 +58,33 @@ def main():
 if __name__ == "__main__":
     main()
 
+* Run as a service
+
+sudo vim /etc/systemd/system/kafka-metrics-producer.service
+
+[Unit]
+Description=Kafka Metrics Producer (Python)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kafka
+WorkingDirectory=/home/kafka/kafka_2.13-4.1.0/py_codes
+ExecStart=/home/kafka/metrics-env/bin/python /home/kafka/kafka_2.13-4.1.0/py_codes/kafka_metrics_producer.py
+Restart=always
+RestartSec=5
+
+# Logging to journald (view with journalctl)
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+
+sudo systemctl daemon-reload
+sudo systemctl enable kafka-python-producer
+sudo systemctl start kafka-python-producer
+
+WantedBy=multi-user.target
+
+
