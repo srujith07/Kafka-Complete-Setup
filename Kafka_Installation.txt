@@ -41,7 +41,7 @@ share.coordinator.state.topic.min.isr,2,The missing piece: ensures queue reliabi
 log.retention.bytes=adjust
 
 - cd /home/kafka/kafka                    # In all 3 nodes including controller and broker
-  bin/kafka-storage.sh format -t <YOUR_UUID> -c config/kraft/server.properties
+  bin/kafka-storage.sh format -t <YOUR_UUID> -c config/server.properties
   
 - vim /etc/systemd/system/kafka.service
 [Unit]
