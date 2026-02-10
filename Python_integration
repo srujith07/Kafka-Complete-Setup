@@ -1,0 +1,60 @@
+* Install python
+sudo apt install python3-pip
+sudo apt install -y python3-venv python3-full
+
+* Create Virrtual Env
+
+python3 -m venv ~/metrics-env
+source ~/metrics-env/bin/activate
+pip install kafka-python psutil
+
+* Python code to send system metrics as message to kafka cluster
+
+import json
+import socket
+import time
+from datetime import datetime, timezone
+
+import psutil
+from kafka import KafkaProducer
+
+TOPIC = "python_msgs"
+INTERVAL = 5  # seconds
+
+
+def json_serializer(data):
+    return json.dumps(data).encode("utf-8")
+
+
+def collect_metrics():
+    return {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "hostname": socket.gethostname(),
+        "cpu_percent": psutil.cpu_percent(interval=1),
+        "ram_percent": psutil.virtual_memory().percent,
+        "disk_percent": psutil.disk_usage("/").percent,
+    }
+
+
+def main():
+    producer = KafkaProducer(
+        bootstrap_servers=[
+            "kafka01:9092",
+            "kafka02:9092",
+            "kafka03:9092",
+        ],
+        value_serializer=json_serializer,
+        acks="all",
+        retries=3,
+    )
+
+    while True:
+        message = collect_metrics()
+        producer.send(TOPIC, message)
+        producer.flush()
+        time.sleep(INTERVAL)
+
+
+if __name__ == "__main__":
+    main()
+
