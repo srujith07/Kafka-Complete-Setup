@@ -4,7 +4,7 @@
 
 - java -version # Checking Proper installation of java
 
-- adduser kafka # Add a dedicated user for kafka and switch to that user
+- sudo adduser kafka # Add a dedicated user for kafka and switch to that user
 
 - wget <download url of specific kafka version> # Downloading kafka
 
