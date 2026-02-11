@@ -25,6 +25,11 @@ bin/kafka-console-consumer.sh --bootstrap-server kafka01:9092,kafka02:9092,kafka
 - To describe a topic
 bin/kafka-log-dirs.sh --bootstrap-server kafka01:9092,kafka02:9092,kafka03:9092 \
   --describe --topic-list topic_name
+- To decrible a consumer
+bin/kafka-consumer-groups.sh \
+  --bootstrap-server kafka01:9092,kafka02:9092,kafka03:9092 \
+  --describe \
+  --group python_consumer
 
 - To see all consumers
 bin/kafka-consumer-groups.sh --bootstrap-server kafka01:9092,kafka02:9092,kafka03:9092 --list
